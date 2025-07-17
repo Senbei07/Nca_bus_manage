@@ -2,6 +2,7 @@
     include("config.php");
     // session_start();
 
+    // --- ใช้ prepared statement สำหรับ $sql ---
     $sql = "SELECT
                 dpt.dpt_id AS id,
                 dpt.dpt_date_start AS d_start,
@@ -13,7 +14,6 @@
 
                 bi.bi_licenseplate AS licen,
                 bi.bi_capacity AS capacity,
-
                 bt.bt_name AS bus_type,
 
                 bsc.bsc_name AS sub_class,
@@ -21,34 +21,34 @@
                 bs.bs_name AS bus_status,
 
                 br.br_id AS br_id,
-                
+
                 title_m.title_name AS m_title,
                 em_main.em_name AS m_name,
                 em_main.em_surname AS m_surname,
                 gen_m.gen_name_th AS m_gen,
-                
+
                 title_ex1.title_name AS ex1_title,
                 em_ex1.em_name AS ex1_name,
                 em_ex1.em_surname AS ex1_surname,
                 gen_ex1.gen_name_th AS ex1_gen,
-                
+
                 title_ex2.title_name AS ex2_title,
                 em_ex2.em_name AS ex2_name,
                 em_ex2.em_surname AS ex2_surname,
                 gen_ex2.gen_name_th AS ex2_gen,
-                
+
                 title_coach.title_name AS coach_title,
                 em_coach.em_name AS coach_name,
                 em_coach.em_surname AS coach_surname,
                 gen_coach.gen_name_th AS coach_gen,
-                
+
                 loc_start.locat_name_th AS loc_start,
                 loc_start.locat_name_eng AS loc_start_eng,
                 loc_end.locat_name_th AS loc_end,
                 loc_end.locat_name_eng AS loc_end_eng,
                 loc_start.locat_id AS start_id,
                 loc_end.locat_id AS end_id
-
+                
             FROM `dri_plan_t` AS dpt 
             LEFT JOIN 
                 bus_routes AS br ON dpt.br_id = br.br_id 
@@ -92,13 +92,14 @@
                 bus_sub_class AS bsc ON bt.bsc_id = bsc.bsc_id
             LEFT JOIN 
                 bus_status AS bs ON bi.bs_id = bs.bs_id
-            ORDER BY dpt_id ;
-    ";
-
-    $result = mysqli_query($conn, $sql);
+            ORDER BY dpt_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
     $event_zone_data = [];
     $event_route_data = [];
+
 
     // วนลูปเพื่อดึงข้อมูลทีละแถวและเพิ่มเข้าในอาร์เรย์
     while($row = mysqli_fetch_assoc($result)){
@@ -151,22 +152,21 @@
     }
 
 
+    // --- ใช้ prepared statement สำหรับ $sql_route ---
     $sql_route = "SELECT
                       lo_start.locat_name_th AS start_th,
-                        lo_end.locat_name_th AS end_th,
-                        lo_start.locat_name_eng AS start_eng,
-                        lo_end.locat_name_eng AS end_eng,
-                        br.bz_id AS zone
-                    FROM `bus_routes` AS br
-                    LEFT JOIN 
+                      lo_end.locat_name_th AS end_th,
+                      lo_start.locat_name_eng AS start_eng,
+                      lo_end.locat_name_eng AS end_eng,
+                      br.bz_id AS zone
+                  FROM `bus_routes` AS br
+                  LEFT JOIN 
                       location AS lo_start ON br.br_start = lo_start.locat_id
-                    LEFT JOIN 
-                      location AS lo_end ON br.br_end = lo_end.locat_id;
-    ";
-
-  $result_route = mysqli_query($conn,$sql_route);
-
-    
+                  LEFT JOIN 
+                      location AS lo_end ON br.br_end = lo_end.locat_id";
+    $stmt_route = $conn->prepare($sql_route);
+    $stmt_route->execute();
+    $result_route = $stmt_route->get_result();
 
     $north_zone = [];
     $northeastern_zone = [];
@@ -227,8 +227,8 @@
     $sql_bus = " SELECT 
                     br.br_id AS id,
                     lo_start.locat_name_th AS lo_s_th,
-                    lo_end.locat_name_eng AS lo_end_th,
-                    lo_start.locat_name_th AS lo_s_en,
+                    lo_end.locat_name_th AS lo_end_th,
+                    lo_start.locat_name_eng AS lo_s_en,
                     lo_end.locat_name_eng AS lo_end_en,
                     bi.bi_licenseplate AS licen
                   FROM 
@@ -284,9 +284,12 @@
                     'color' => '#1dab2f',
                     'status'  => 'on site'
           ];
-          $route_new = $route_old;
+          $route_old = $route_new;
         }
       }
+
+
+      $sql_error = "";
 
 ?>
 
@@ -301,7 +304,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="css/manage.css">
-
+    
     
     <script>
         // Ignore this in your implementation
@@ -316,11 +319,11 @@
 
 
 <body class='bg-light'>
-    <div class="alert-popup d-none" id="alert">
-        <h4 class="alert-title">แจ้งปัญหารถโดยสาร</h4>
+    <div class="alert-popup d-none shadow-lg border border-danger" id="alert" style="top:55%;left:50%;background:#fff9f9;">
+        <h4 class="alert-title text-danger" style="font-size:1.5rem;">แจ้งปัญหารถโดยสาร</h4>
         <?php for ($i = 1; $i <= 3; $i++) { ?>
-            <div class="alert-card">
-                <div class="alert-header">
+            <div class="alert-card" style="border-left:6px solid #dc3545;background:#fff3f3;">
+                <div class="alert-header" style="font-weight:bold;">
                     <strong>สาย:</strong> กรุงเทพ - เชียงใหม่<br>
                     <strong>เที่ยวเวลา:</strong> 06.30
                 </div>
@@ -333,7 +336,7 @@
             </div>
         <?php } ?>
         <div class="text-center mt-3">
-            <button class="btn btn-danger" onclick="active('alert')">ปิด</button>
+            <button class="btn btn-danger px-4 py-2 rounded-pill" onclick="active('alert')">ปิด</button>
         </div>
     </div>
 
@@ -371,7 +374,7 @@
                     </div>
                 </div>
                 <div class="fillter w-100 d-flex  justify-content-end mt-3" id="fillter">
-                    <form action="">
+                    <form action="" class='d-none'>
                         <select name="route" id="route-select" class="form-select w-auto">
                             <?php
                                 foreach($busRoutes as $route){
@@ -383,8 +386,11 @@
                     <button class="zone bg-secondary  " id="btn-zone" onclick="dataselect('zone')">Zone</button>
                     <button class="route " id="btn-route" onclick="dataselect('route')">Route</button>
                     <button class="list " id="btn-list" onclick="dataselect('list')">list</button>
+                    <button class="add " id="btn-add" onclick="active('add')">Add</button>
                     <!-- <button class="route w-20" id="Orientation" onclick="setOrientation()">แนวนอน</button> -->
                 </div>
+
+                
                 <div class="bus-table horizontal " id='zone'>
                     <div id="calendar-zone"></div>
                         <div style="display:none">
@@ -420,8 +426,7 @@
                         </div>
                     </div>
                     <div class="bus-table horizontal pt-20 m-10 w-100 h-30 d-none" id='list'>
-                        <div class="table-container" style='height:500px;'>
-                            <h3 class='position-fixed'>เที่ยวไป</h3>
+                        <div class="table-container" style='height:600px;'>
                             <table class="table table-striped">
                                     <thead>
                                         <tr>
@@ -439,27 +444,71 @@
                                     </thead>
                                     <tbody>
                                         <?php
-                                        for($i =1 ; $i <= 20; $i++){
+                                        // ตัวอย่างข้อมูล (ควรดึงจากฐานข้อมูลจริง)
+                                        $listData = [];
+                                        for($i = 1; $i <= 20; $i++){
+                                            $listData[] = [
+                                                'no' => $i,
+                                                'code' => '18-1234',
+                                                'plate' => 'กข-2386',
+                                                'status' => 'กำลังเดินทางไป',
+                                                'go' => '7.00 18-1234',
+                                                'back' => '17.00 18-1234',
+                                                'main' => 'นาย กอขอ คองอ',
+                                                'ex1' => 'นาย กอกอ ปอปอ',
+                                                'ex2' => 'นาย กอไก่ ปอปลา',
+                                                'coach' => 'นางสาว เอบี ซีดี'
+                                            ];
+                                        }
+                                        $listPerPage = 10;
+                                        $listTotal = count($listData);
+                                        $listTotalPages = ceil($listTotal / $listPerPage);
+                                        $listPage = isset($_GET['list_page']) && is_numeric($_GET['list_page']) ? (int)$_GET['list_page'] : 1;
+                                        if ($listPage < 1) $listPage = 1;
+                                        if ($listPage > $listTotalPages) $listPage = $listTotalPages;
+                                        $listStart = ($listPage - 1) * $listPerPage;
+                                        for($i = $listStart; $i < $listStart + $listPerPage && $i < $listTotal; $i++){
+                                            $row = $listData[$i];
                                         ?>
                                         <tr>
-                                            <td><?php echo $i;?></td>
-                                            <td>18-1234</td>
-                                            <td> กข-2386</td>
-                                            <td>กำลังเดินทางไป</td>
-                                            <td>7.00 18-1234</td>
-                                            <td>17.00 18-1234</td>
-                                            <td>นาย กอขอ คองอ</td>
-                                            <td>นาย กอกอ ปอปอ</td>
-                                            <td>นาย กอไก่ ปอปลา</td>
-                                            <td>นางสาว เอบี ซีดี</td>
+                                            <td><?php echo $row['no'];?></td>
+                                            <td><?php echo $row['code'];?></td>
+                                            <td><?php echo $row['plate'];?></td>
+                                            <td><?php echo $row['status'];?></td>
+                                            <td><?php echo $row['go'];?></td>
+                                            <td><?php echo $row['back'];?></td>
+                                            <td><?php echo $row['main'];?></td>
+                                            <td><?php echo $row['ex1'];?></td>
+                                            <td><?php echo $row['ex2'];?></td>
+                                            <td><?php echo $row['coach'];?></td>
                                         </tr>
                                         <?php
-                                            }
+                                        }
                                         ?>
                                     </tbody>
-                            </table>
+                                </table>
+                                <!-- Pagination -->
+                                <nav>
+                                    <ul class="pagination justify-content-center mt-2">
+                                        <?php if($listPage > 1): ?>
+                                            <li class="page-item">
+                                                <a class="page-link" href="?list_page=<?php echo $listPage-1; ?>">Previous</a>
+                                            </li>
+                                        <?php endif; ?>
+                                        <?php for($p = 1; $p <= $listTotalPages; $p++): ?>
+                                            <li class="page-item <?php echo ($p == $listPage) ? 'active' : '' ?>">
+                                                <a class="page-link" href="?list_page=<?php echo $p; ?>"><?php echo $p; ?></a>
+                                            </li>
+                                        <?php endfor; ?>
+                                        <?php if($listPage < $listTotalPages): ?>
+                                            <li class="page-item">
+                                                <a class="page-link" href="?list_page=<?php echo $listPage+1; ?>">Next</a>
+                                            </li>
+                                        <?php endif; ?>
+                                    </ul>
+                                </nav>
+                            </div>
                         </div>
-                    </div>
                 </div>
                 
                 
@@ -471,86 +520,175 @@
             </div>
 
         </main>            
-        <aside class='info-window bg-light position-absolute d-flex flex-col d-none' id='info-window'>
+        <aside class='info-window bg-light position-absolute d-flex flex-col d-none shadow-lg p-4 rounded' id='info-window' style="min-width:350px;max-width:500px;top:60px;right:40px;left:auto;transform:none;border:1px solid #dee2e6;">
             <div>
-                <div class='info-header d-flex'>
-                    <h2 id='info-route-num'>18-1234</h2>
-                    <p class='info-bus-status bg-info' id='info-bus-status'> รถกำลังเดินทาง</p>
+                <div class='info-header d-flex align-items-center justify-content-between border-bottom pb-2 mb-3'>
+                    <h2 id='info-route-num' class="mb-0 fs-4 text-primary"></h2>
+                    <span class='info-bus-status badge bg-info' id='info-bus-status' style="font-size:1rem;padding:0.5em 1em;"> กำลังดำเนินการ </span>
                 </div>
-                <div class='info-con'>         
-                    <p id='info-route'>สาย: กรุงเทพ - เชียงใหม่</p>
-                    <p id='info-time'>เที่ยวเวลา :06.30</p>
-                    <p id='info-start'>เวลาออกต้นทาง :06.50</p>
-                    <p id='info-end'>เวลาถึงปลายทาง :--</p>
-                    <p id='info-main-dri'>พขร :นายกอขอคอ เอบี</p>
-                    <p id='info-ex-dri1'>พขร พ่วง1:นาย เอบี</p>
-                    <p id='info-ex-dri2'>พขร พ่วง2: บีเอ </p>
-                    <p id='info-coach'>โค้ช: นางสาว เอเอเอ</p>
-                    <p id='info-start-on'>เวลาออกจากอู่: 06.15 น.</p>
+                <div class='info-con mb-3'>
+                    <div class="mb-2"><span class="fw-bold text-secondary">สาย:</span> <span id='info-route'></span></div>
+                    <div class="mb-2"><span class="fw-bold text-secondary">เที่ยวออกเวลา:</span> <span id='info-time'></span></div>
+                    <div class="mb-2"><span class="fw-bold text-secondary">เวลาออกต้นทาง:</span> <span id='info-start'></span></div>
+                    <div class="mb-2"><span class="fw-bold text-secondary">เวลาถึงทาง:</span> <span id='info-end'></span></div>
+                    <div class="mb-2"><span class="fw-bold text-secondary">พนักงานขับ:</span> <span id='info-main-dri'></span></div>
+                    <div class="mb-2"><span class="fw-bold text-secondary">พนักงานขับ พ่วง1:</span> <span id='info-ex-dri1'></span></div>
+                    <div class="mb-2"><span class="fw-bold text-secondary">พนักงานขับ พ่วง2:</span> <span id='info-ex-dri2'></span></div>
+                    <div class="mb-2"><span class="fw-bold text-secondary">โค้ช:</span> <span id='info-coach'></span></div>
+                    <div class="mb-2"><span class="fw-bold text-secondary">สถานะ:</span> <span id='info-start-on'></span></div>
                 </div>
-                <div class='info-btn'>
-
-                    <button onclick="active('changedriver')" id=''>เปลี่ยนพลขับ</button>
-                    <form action="change_route.php" method="post"  id='change'>
+                <div class='info-btn d-flex gap-2 flex-wrap'>
+                    <button onclick="active('changedriver')" id='' class="btn btn-outline-primary">เปลี่ยน พขร</button>
+                    <form action="change_route.php" method="post" id='change' class="d-inline">
                         <input type="hidden" id='change_id' name='change_id' class='d-none'>
                         <input type="hidden" id='change_date' name='change_date' class='d-none'>
                         <input type="hidden" id='change_time' name='change_time' class='d-none'>
                         <input type="hidden" id='change_lo' name='change_lo' class='d-none'>
-                        <button type='submit' for='change'  >ขยับสายรถ</button>
+                        <button type='submit' for='change' class="btn btn-outline-secondary">ขยับสายรถ</button>
                     </form>
-                    <button onclick="active('editdata')" >แก้ไขข้อมูล</button>
-                    <button onclick="active('returnbus')" >รถกลับหัว</button>
-                    <!-- <button onclick="active('save')" id=''>บันทึก</button> -->
-                    <button onclick="active('info-window','close')" id='' class='bg-danger'>ปิด</button>
+                    <button onclick="active('returnbus')" class="btn btn-outline-warning">รถกลับหัว</button>
+                    <button onclick="active('info-window','close')" id='' class='btn btn-danger'>ปิด</button>
                 </div>
             </div>  
         </aside>
-    <div class="info-menu changedriver bg-light position-absolute d-none" id="changedriver">
-        <h4>เปลี่ยนพลขับ</h4>
-        <p class="text-danger">คำเตือน .....</p>
-
-        <div class="info-menu-con">
+                <div class="info-menu changedriver bg-light shadow-lg border border-primary rounded-3 position-absolute d-none" id="changedriver" style="top:55%;left:50%;transform:translate(-50%,-50%);min-width:350px;max-width:500px;">
+        <h4 class="text-primary text-center mb-3" style="font-size:1.3rem;">เปลี่ยนพนักงานขับ</h4>
+        <p class="text-danger text-center mb-3">คำเตือน: การเปลี่ยนพนักงานขับจะมีผลกับเที่ยวนี้เท่านั้น</p>
+        <div class="info-menu-con px-2">
             <form action="update_driver.php" method="post">
                 <div class="mb-3">
-                    <label for="driver" class="form-label">เลือกพลขับใหม่:</label>
+                    <label for="driver" class="form-label fw-bold">เลือกพนักงานขับใหม่:</label>
                     <select name="driver_id" id="driver-select" class="form-select" required>
                         <!-- <option> จะถูกเพิ่มด้วย JavaScript -->
                     </select>
                 </div>
-
-                <!-- ส่งข้อมูลอื่นเพิ่มเติม เช่น plan_id -->
                 <input type="hidden" name="group_id" id="em-group-id" value="">
-
-                <button type="submit" class="btn btn-primary">บันทึก</button>
-                <button type="button" onclick="active('changedriver')" class="btn btn-outline-secondary mt-2">ปิด</button>
+                <div class="d-flex gap-2 justify-content-center mt-3">
+                    <button type="submit" class="btn btn-primary px-4">บันทึก</button>
+                    <button type="button" onclick="active('changedriver')" class="btn btn-outline-secondary px-4">ปิด</button>
+                </div>
             </form>
         </div>
     </div>
-
-    <div class="info-menu returnbus bg-light position-absolute d-none" id="returnbus">
-    <h4>เลือกรถกลับหัว</h4>
-    <p class="text-danger">เลือกรถที่พร้อมให้บริการในรอบกลับหัว</p>
-
-    <div class="info-menu-con">
-        <form action="update_return_bus.php" method="post">
-            <div class="mb-3">
-                <label for="return-bus-select" class="form-label">เลือกรถกลับหัว:</label>
-                <select name="return_bus_id" id="return-bus-select" class="form-select" required>
-                    <!-- option จะถูกเพิ่มด้วย JS -->
-                </select>
-            </div>
-
-            <div id="bus-details" style="margin-top: 10px;">
-                <!-- รายละเอียดรถจะแสดงที่นี่ -->
-            </div>
-
-            <input type="hidden" name="group_id" id="returnbus-group-id" value="">
-            <button type="submit" class="btn btn-success">บันทึก</button>
-            <button type="button" onclick="active('returnbus')" class="btn btn-outline-secondary mt-2">ปิด</button>
-        </form>
-
+    <div class="info-menu returnbus bg-light shadow-lg border border-warning rounded-3 position-absolute d-none" id="returnbus" style="top:55%;left:50%;transform:translate(-50%,-50%);min-width:350px;max-width:500px;">
+        <h4 class="text-warning text-center mb-3" style="font-size:1.3rem;">เลือกรถกลับหัว</h4>
+        <p class="text-danger text-center mb-3">เลือกรถที่พร้อมให้บริการในรอบกลับหัว</p>
+        <div class="info-menu-con px-2">
+            <form action="update_return_bus.php" method="post">
+                <div class="mb-3">
+                    <label for="return-bus-select" class="form-label fw-bold">เลือกรถกลับหัว:</label>
+                    <select name="return_bus_id" id="return-bus-select" class="form-select" required>
+                        <!-- option จะถูกเพิ่มด้วย JS -->
+                    </select>
+                </div>
+                <div id="bus-details" style="margin-top: 10px;">
+                    <!-- รายละเอียดรถจะแสดงที่นี่ -->
+                </div>
+                <div class="d-flex gap-2 justify-content-center mt-3">
+                    <button type="submit" class="btn btn-success px-4">บันทึก</button>
+                    <button type="button" onclick="active('returnbus')" class="btn btn-outline-secondary px-4">ปิด</button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
+    <div class="add-form d-none" id="add">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">ฟอร์มเพิ่มข้อมูลการวางแผนรถ</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="active('add')"></button>
+                </div>
+
+                <div class="modal-body">
+                    <form onsubmit="return validateForm()" action="add_event.php" method="POST">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">โซน</label>
+                                <input type="text" id="zone_select" class="form-control" autocomplete="off" required>
+                                <input type="hidden" name="bz_id" id="zone_id_hidden">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">เส้นทาง</label>
+                                <input type="text" id="route_select" class="form-control" autocomplete="off" required>
+                                <input type="hidden" name="br_id" id="route_id_hidden">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">ประเภทรถ</label>
+                                <input type="text" id="bus_type_select" class="form-control" autocomplete="off" required>
+                                <input type="hidden" name="bt_id" id="bus_type_id_hidden">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">เลือกรถ</label>
+                                <input type="text" id="bus_select" class="form-control" autocomplete="off" required>
+                                <input type="hidden" name="bi_id" id="bus_id_hidden">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">พนักงานขับรถ</label>
+                                <input type="text" id="driver_select" class="form-control" autocomplete="off" required>
+                                <input type="hidden" name="main_dri" id="driver_id_hidden">
+                            </div>
+
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">พนักงานขับรถ พ่วง1</label>
+                                <input type="text" name="ex_dri1_text" id="ex_dri1" class="form-control " autocomplete="off">
+                                <input type="hidden" name="ex_dri1" id="ex_dri1_hidden">
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">พนักงานขับรถ พ่วง2</label>
+                                <input type="text" name="ex_dri2_text" id="ex_dri2" class="form-control" autocomplete="off">
+                                <input type="hidden" name="ex_dri2" id="ex_dri2_hidden">
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">โค้ช</label>
+                                <input type="text" name="coach_text" id="coach" class="form-control" autocomplete="off">
+                                <input type="hidden" name="coach" id="coach_hidden">
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">วันที่ออก รอบไป</label>
+                                <input type="date" name="dpt_date_start" class="form-control" autocomplete="off" required>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">เวลาที่ออก รอบไป</label>
+                                <input type="time" name="dpt_time_start" class="form-control" autocomplete="off" required>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">วันที่ออก รอบกลับ</label>
+                                <input type="date" name="return_date_start" class="form-control" autocomplete="off" required>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">เวลาที่ออก รอบกลับ</label>
+                                <input type="time" name="return_time_start" class="form-control" autocomplete="off" required>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-success">บันทึกข้อมูล</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="active('add')">ปิด</button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
 
 
 
@@ -601,46 +739,26 @@
         </div>
     </div>
 
+        <script src="js/auto_complete.js"></script>
+    <script src="js/add_form.js"></script>
+    <script src="js/active_func.js"></script>
+
     <script>
 
 
-let event_zone = <?php echo json_encode($event_zone_data); ?>;
-let Resources_zone = <?php echo json_encode($resources_zone_data); ?>;
-let Resources_route = <?php echo json_encode($bus); ?>;
-let event_route = <?php echo json_encode($event_route_data); ?>;
-
- 
-         const mySelect = document.getElementById('route-select');
-         let myEvents = event_zone;
-         let myResources = Resources_zone;
-         bus_plan(myEvents,myResources);
+        let event_zone = <?php echo json_encode($event_zone_data); ?>;
+        let Resources_zone = <?php echo json_encode($resources_zone_data); ?>;
+        let Resources_route = <?php echo json_encode($bus); ?>;
+        let event_route = <?php echo json_encode($event_route_data); ?>;
 
 
-        function active(value,action,bus_id){
-            if(value == 'sidebar'){
-                let main = document.getElementById('main');
-                main.classList.toggle('mw-100-vw')
-                main.classList.toggle('mw-85-vw')
-                let element = document.getElementById(value);
-                element.classList.toggle('d-none');
-            }else if(action != null){
-                if(action == 'active'){
-                    console.log(value);
-                    let element = document.getElementById(value);
-                    element.classList.remove('d-none');
-                }else{
-                    let element = document.getElementById(value);
-                    element.classList.add('d-none');
-                }
-            }else if(value == 'info-window'){
-              let element = document.getElementById(value);
-              element.classList.add('d-none');
-              element.classList.remove('d-none');
-            }else{
-                let element = document.getElementById(value);
-                element.classList.toggle('d-none');
-            }
-        }
+        const mySelect = document.getElementById('route-select');
+        let myEvents = event_zone;
+        let myResources = Resources_zone;
+        bus_plan(myEvents,myResources);
+
+
+
 
         function dataselect(datatype){
             console.log(datatype)
@@ -708,72 +826,79 @@ let event_route = <?php echo json_encode($event_route_data); ?>;
 
         mySelect.addEventListener('change', (event) => {
             console.log(event.target.value);
-        })
+            })
 
-           mobiscroll.setOptions({
-      locale: mobiscroll.localeTh,           // Specify language like: locale: mobiscroll.localePl or omit setting to use default
-      theme: 'windows',                      // Specify theme like: theme: 'ios' or omit setting to use default
-        themeVariant: 'light'                // More info about themeVariant: https://mobiscroll.com/docs/javascript/eventcalendar/api#opt-themeVariant
-    });
-
-    
-    
-    function bus_plan(myEvents,myResources){
-    var calendarElm = document.getElementById('calendar-zone');
-    var popupElm = document.getElementById('filtering-popup-zone');
-    var resourceList = document.getElementById('resource-list');
-    
-    var filters = {};
-    var filteredResources = myResources;
-    var searchTimeout;
-    var searchQuery;
-    
-    function filterResources() {
-      filteredResources = myResources
-        .map(function (site) {
-          return {
-            id: site.id,
-            name: site.name,
-            color: site.color,
-            eventCreation: site.eventCreation,
-            children: site.children.filter(function (resource) {
-              return filters[resource.status] && (!searchQuery || resource.name.toLowerCase().includes(searchQuery.toLowerCase()));
-            }),
-          };
-        })
-        .filter(function (site) {
-          return site.children.length > 0 && filters[site.id];
+            mobiscroll.setOptions({
+        locale: mobiscroll.localeTh,           // Specify language like: locale: mobiscroll.localePl or omit setting to use default
+        theme: 'windows',                      // Specify theme like: theme: 'ios' or omit setting to use default
+            themeVariant: 'light'                // More info about themeVariant: https://mobiscroll.com/docs/javascript/eventcalendar/api#opt-themeVariant
         });
     
-      calendar.setOptions({ resources: filteredResources });
-    }
     
-    var popup = mobiscroll.popup(popupElm, {
-      buttons: [                             // More info about buttons: https://mobiscroll.com/docs/javascript/eventcalendar/api#opt-buttons
-        'cancel',
-        {
-          text: 'Apply',
-          keyCode: 'enter',
-          handler: function () {
-            document.querySelectorAll('.mds-resource-filtering-checkbox').forEach(function (checkbox) {
-              filters[checkbox.value] = checkbox.checked;
+        function bus_plan(myEvents,myResources){
+        var calendarElm = document.getElementById('calendar-zone');
+        var popupElm = document.getElementById('filtering-popup-zone');
+        var resourceList = document.getElementById('resource-list');
+        
+        var filters = {};
+        var filteredResources = myResources;
+        var searchTimeout;
+        var searchQuery;
+    
+        function filterResources() {
+        filteredResources = myResources
+            .map(function (site) {
+                // ปรับ logic ให้ค้นหาทั้ง parent (site.name) และ child (resource.name)
+                const parentMatch = searchQuery && site.name.toLowerCase().includes(searchQuery.toLowerCase());
+                const filteredChildren = site.children.filter(function (resource) {
+                    return filters[resource.status] && (
+                        !searchQuery ||
+                        resource.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        parentMatch
+                    );
+                });
+                // ถ้า parent ตรง searchQuery ให้แสดงลูกทั้งหมด
+                return {
+                    id: site.id,
+                    name: site.name,
+                    color: site.color,
+                    eventCreation: site.eventCreation,
+                    children: parentMatch && searchQuery ? site.children : filteredChildren,
+                };
+            })
+            .filter(function (site) {
+                return site.children.length > 0 && filters[site.id];
             });
-            filterResources();
-            popup.close();
-            mobiscroll.toast({
-              message: 'Filters applied',
-            });
-          },
-          cssClass: 'mbsc-popup-button-primary',
-        },
-      ],
-      contentPadding: false,
-      display: 'anchored',                   // Specify display mode like: display: 'bottom' or omit setting to use default
-      focusOnClose: false,                   // More info about focusOnClose: https://mobiscroll.com/docs/javascript/eventcalendar/api#opt-focusOnClose
-      focusOnOpen: false,
-      showOverlay: false,
-      width: 400,                            // More info about width: https://mobiscroll.com/docs/javascript/eventcalendar/api#opt-width
-    });
+
+        calendar.setOptions({ resources: filteredResources });
+        }
+    
+        var popup = mobiscroll.popup(popupElm, {
+        buttons: [                             // More info about buttons: https://mobiscroll.com/docs/javascript/eventcalendar/api#opt-buttons
+            'cancel',
+            {
+            text: 'Apply',
+            keyCode: 'enter',
+            handler: function () {
+                document.querySelectorAll('.mds-resource-filtering-checkbox').forEach(function (checkbox) {
+                filters[checkbox.value] = checkbox.checked;
+                });
+                filterResources();
+                popup.close();
+                mobiscroll.toast({
+                message: 'Filters applied',
+                });
+            },
+            cssClass: 'mbsc-popup-button-primary',
+            },
+        ],
+        contentPadding: false,
+        display: 'anchored',                   // Specify display mode like: display: 'bottom' or omit setting to use default
+        focusOnClose: false,                   // More info about focusOnClose: https://mobiscroll.com/docs/javascript/eventcalendar/api#opt-focusOnClose
+        focusOnOpen: false,
+        showOverlay: false,
+        width: 400,                            // More info about width: https://mobiscroll.com/docs/javascript/eventcalendar/api#opt-width
+        });
     
     var calendar = mobiscroll.eventcalendar(calendarElm, {
       cssClass: 'mds-resource-calendar-zone',
@@ -843,9 +968,9 @@ let event_route = <?php echo json_encode($event_route_data); ?>;
                             <p><strong>เวลา:</strong> ${bus.time_end || bus.dpt_time_end || '-'}</p>
                             <p><strong>พลขับ:</strong> ${bus.title} ${bus.name} ${bus.surname}</p>
                             <p><strong>แผนเดินรถ:</strong> ${bus.pt_name}</p>
-                            <input type="hidden" value='${bus.main_dri}' name='dri_id' disabled>
-                            <input type="hidden" value='${bus.bi_id}' name='bus_id' disabled>
-                            <input type="hidden" value='${args.event['group']}' name='group_id' disabled>
+                            <input type="hidden" value='${bus.main_dri}' name='dri_id' >
+                            <input type="hidden" value='${bus.bi_id}' name='bus_id' >
+                            <input type="hidden" value='${args.event['group']}' name='group_id' >
                         `;
                     } else {
                         busDetailsDiv.innerHTML = '<p>ไม่พบข้อมูลรายละเอียดรถ</p>';
@@ -882,7 +1007,7 @@ let event_route = <?php echo json_encode($event_route_data); ?>;
         let em_group_id = document.getElementById('em-group-id');
         em_group_id.value = `${args.event['group']}`;
         // console.log(args.event['group']);
-
+    
 
 
         let route_id = document.getElementById('info-route-num');
