@@ -18,8 +18,8 @@
     $normal_code = [3, 2, 1];
 
     $date = $_GET['date'] ?? null;
-    // เพิ่ม: รับค่าหลายสายจาก GET
-    $selected_routes = isset($_GET['routes']) ? (array)$_GET['routes'] : [];
+    // ไม่ต้องใช้ select route ด้านบน
+    $selected_route = isset($_GET['route']) ? $_GET['route'] : (count($all_routes_pool) > 0 ? $all_routes_pool[0] : null);
 
     // Initialize variables to prevent errors when no date is selected
     $plan = [];
@@ -64,8 +64,8 @@
             }
 
             // จัดกลุ่มพนักงานหลักที่พักและสำรองตามเส้นทาง
-            $main_break = groupByRouteWithNewQueue($goto, $new_main, $main_break);
-            $main_break = groupByRouteWithNewQueue($goto, $break, $main_break);
+            $main_break = groupByRouteWithNewQueue($goto, $new_main, 1, $main_break);
+            $main_break = groupByRouteWithNewQueue($goto, $break, 1, $main_break);
 
             $plan = [];
             $main_end = [];
@@ -137,17 +137,7 @@
                             <label for="date-select" class="form-label"><strong>วันที่:</strong></label>
                             <input type="date" id="date-select" name="date" class="form-control" value="<?php echo htmlspecialchars($date); ?>">
                         </div>
-                        <div class="col-md-4">
-                            <label for="route-multiselect" class="form-label"><strong>เลือกเส้นทาง (เลือกได้หลายสาย):</strong></label>
-                            <select id="route-multiselect" name="routes[]" class="form-select" multiple size="5">
-                                <?php foreach ($all_routes_pool as $route_id): ?>
-                                    <option value="<?php echo htmlspecialchars($route_id); ?>" <?php echo in_array($route_id, $selected_routes) ? 'selected' : ''; ?>>
-                                        สาย <?php echo htmlspecialchars($route_id); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <small class="text-muted">กด Ctrl หรือ Shift เพื่อเลือกหลายสาย</small>
-                        </div>
+                        <!-- ลบเมนูเลือกเส้นทางที่นี่ออก -->
                         <div class="col-md-2">
                             <button type="submit" class="btn btn-primary w-100">ดูแผน</button>
                         </div>
@@ -184,17 +174,19 @@
                             </div>
                             <div style="max-height: 65vh; overflow-y: auto;">
                                 <div class="nav flex-column nav-pills p-2" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-                                    <?php $first = true; ?>
-                                    <?php
-                                        // แสดงเฉพาะสายที่เลือก (หรือทั้งหมดถ้าไม่เลือก)
-                                        $show_routes = $selected_routes ? $selected_routes : array_keys($plan);
-                                        foreach ($show_routes as $br_id):
-                                            if (!isset($plan[$br_id])) continue;
-                                    ?>
-                                        <button class="nav-link text-start <?php if($first) echo 'active'; ?>" id="v-pills-<?php echo $br_id; ?>-tab" data-bs-toggle="pill" data-bs-target="#v-pills-<?php echo $br_id; ?>" type="button" role="tab" aria-controls="v-pills-<?php echo $br_id; ?>" aria-selected="<?php echo $first ? 'true' : 'false'; ?>">
-                                            เส้นทาง <?php echo htmlspecialchars($br_id); ?>
+                                    <?php foreach ($all_routes_pool as $route_id): ?>
+                                        <button class="nav-link text-start <?php if($route_id == $selected_route) echo 'active'; ?>"
+                                            id="v-pills-<?php echo $route_id; ?>-tab"
+                                            data-bs-toggle="pill"
+                                            data-bs-target="#v-pills-<?php echo $route_id; ?>"
+                                            type="button"
+                                            role="tab"
+                                            aria-controls="v-pills-<?php echo $route_id; ?>"
+                                            aria-selected="<?php echo $route_id == $selected_route ? 'true' : 'false'; ?>"
+                                            data-route="<?php echo htmlspecialchars($route_id); ?>"
+                                        >
+                                            เส้นทาง <?php echo htmlspecialchars($route_id); ?>
                                         </button>
-                                        <?php $first = false; ?>
                                     <?php endforeach; ?>
                                 </div>
                             </div>
@@ -204,13 +196,14 @@
                     <!-- Content Area -->
                     <div class="col-md-9">
                         <div class="tab-content" id="v-pills-tabContent">
-                            <?php $first = true; ?>
-                            <?php
-                                foreach ($show_routes as $br_id):
-                                    if (!isset($plan[$br_id])) continue;
-                                    $rows = $plan[$br_id];
-                            ?>
-                                <div class="tab-pane fade <?php if($first) echo 'show active'; ?>" id="v-pills-<?php echo $br_id; ?>" role="tabpanel" aria-labelledby="v-pills-<?php echo $br_id; ?>-tab">
+                            <?php foreach ($all_routes_pool as $route_id): ?>
+                                <?php if (!isset($plan[$route_id])) continue; ?>
+                                <div class="tab-pane fade <?php if($route_id == $selected_route) echo 'show active'; ?>"
+                                    id="v-pills-<?php echo $route_id; ?>"
+                                    role="tabpanel"
+                                    aria-labelledby="v-pills-<?php echo $route_id; ?>-tab"
+                                >
+                                    <?php $rows = $plan[$route_id]; $br_id = $route_id; ?>
                                     <div class="card">
                                         <div class="card-body">
                                             <h4 class="text-info">แผนการเดินรถ</h4>
@@ -352,7 +345,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                <?php $first = false; ?>
                             <?php endforeach; ?>
                         </div>
                     </div>
@@ -434,7 +426,7 @@
                     }
                 });
 
-                // --- Drag from พขร.พ่วง พัก to พขร.พ่วง ---
+                // --- Drag from พขร.พ่วง พัก to พขร.พ่วง (ข้ามสายได้) ---
                 document.querySelectorAll('.ex-break-list').forEach(breakList => {
                     breakList.addEventListener('dragstart', function(e) {
                         if (e.target.classList.contains('ex-driver-item')) {
@@ -447,8 +439,19 @@
                         }
                     });
                 });
+                // รองรับ ex-break-list ที่ถูกสร้างใหม่
+                document.body.addEventListener('dragstart', function(e) {
+                    if (e.target.classList && e.target.classList.contains('ex-driver-item')) {
+                        e.dataTransfer.setData('text/plain', JSON.stringify({
+                            breakIndex: e.target.dataset.breakIndex,
+                            brId: e.target.dataset.brId,
+                            type: 'ex'
+                        }));
+                        e.dataTransfer.effectAllowed = 'move';
+                    }
+                });
 
-                // --- Drag from โค้ช พัก to โค้ช ---
+                // --- Drag from โค้ช พัก to โค้ช (ข้ามสายได้) ---
                 document.querySelectorAll('.coach-break-list').forEach(breakList => {
                     breakList.addEventListener('dragstart', function(e) {
                         if (e.target.classList.contains('coach-driver-item')) {
@@ -460,6 +463,17 @@
                             e.dataTransfer.effectAllowed = 'move';
                         }
                     });
+                });
+                // รองรับ coach-break-list ที่ถูกสร้างใหม่
+                document.body.addEventListener('dragstart', function(e) {
+                    if (e.target.classList && e.target.classList.contains('coach-driver-item')) {
+                        e.dataTransfer.setData('text/plain', JSON.stringify({
+                            breakIndex: e.target.dataset.breakIndex,
+                            brId: e.target.dataset.brId,
+                            type: 'coach'
+                        }));
+                        e.dataTransfer.effectAllowed = 'move';
+                    }
                 });
 
                 // --- Drop logic for all driver types ---
@@ -511,10 +525,10 @@
                                 updatePlanTableDOM(brId);
                                 updateBreakListDOM(goRoute, brId, 'main');
                             }
-                            // --- Ex driver swap ---
+                            // --- Ex driver swap (ข้ามสายได้) ---
                             else if (data.type === 'ex') {
-                                const { breakIndex } = data;
-                                const breakDriver = jsExBreak[brId].splice(breakIndex, 1)[0];
+                                const { breakIndex, brId: fromBrId } = data;
+                                const breakDriver = jsExBreak[fromBrId].splice(breakIndex, 1)[0];
                                 const exDriver = jsPlan[brId][dropRowIndex];
                                 // swap only ex fields
                                 const oldEx = {
@@ -524,6 +538,7 @@
                                     em_queue: exDriver.ex_queue,
                                     new_queue: exDriver.ex_new_queue
                                 };
+                                if (!jsExBreak[fromBrId]) jsExBreak[fromBrId] = [];
                                 jsPlan[brId][dropRowIndex] = {
                                     ...exDriver,
                                     ex_id: breakDriver.em_id,
@@ -532,21 +547,21 @@
                                     ex_queue: breakDriver.em_queue,
                                     ex_new_queue: breakDriver.new_queue
                                 };
-                                jsExBreak[brId].unshift(oldEx);
+                                jsExBreak[fromBrId].unshift(oldEx);
                                 // Recalculate queues
                                 jsPlan[brId].forEach((row, idx) => {
                                     row.ex_new_queue = `${brId}-2-${idx + 1}`;
                                 });
-                                jsExBreak[brId].forEach((driver, idx) => {
-                                    driver.new_queue = `${brId}-2-${idx + 1}`;
+                                jsExBreak[fromBrId].forEach((driver, idx) => {
+                                    driver.new_queue = `${fromBrId}-2-${idx + 1}`;
                                 });
                                 updatePlanTableDOM(brId);
-                                updateBreakListDOM(brId, brId, 'ex');
+                                updateBreakListDOM(fromBrId, brId, 'ex');
                             }
-                            // --- Coach driver swap ---
+                            // --- Coach driver swap (ข้ามสายได้) ---
                             else if (data.type === 'coach') {
-                                const { breakIndex } = data;
-                                const breakDriver = jsCoachBreak[brId].splice(breakIndex, 1)[0];
+                                const { breakIndex, brId: fromBrId } = data;
+                                const breakDriver = jsCoachBreak[fromBrId].splice(breakIndex, 1)[0];
                                 const coachDriver = jsPlan[brId][dropRowIndex];
                                 // swap only coach fields
                                 const oldCoach = {
@@ -556,6 +571,7 @@
                                     em_queue: coachDriver.coach_queue,
                                     new_queue: coachDriver.coach_new_queue
                                 };
+                                if (!jsCoachBreak[fromBrId]) jsCoachBreak[fromBrId] = [];
                                 jsPlan[brId][dropRowIndex] = {
                                     ...coachDriver,
                                     coach_id: breakDriver.em_id,
@@ -564,16 +580,16 @@
                                     coach_queue: breakDriver.em_queue,
                                     coach_new_queue: breakDriver.new_queue
                                 };
-                                jsCoachBreak[brId].unshift(oldCoach);
+                                jsCoachBreak[fromBrId].unshift(oldCoach);
                                 // Recalculate queues
                                 jsPlan[brId].forEach((row, idx) => {
                                     row.coach_new_queue = `${brId}-2-${idx + 1}`;
                                 });
-                                jsCoachBreak[brId].forEach((driver, idx) => {
-                                    driver.new_queue = `${brId}-2-${idx + 1}`;
+                                jsCoachBreak[fromBrId].forEach((driver, idx) => {
+                                    driver.new_queue = `${fromBrId}-2-${idx + 1}`;
                                 });
                                 updatePlanTableDOM(brId);
-                                updateBreakListDOM(brId, brId, 'coach');
+                                updateBreakListDOM(fromBrId, brId, 'coach');
                             }
                         });
                     });
@@ -757,13 +773,13 @@
                                         ghostClass: 'sortable-ghost',
                                         onEnd: function (evt) {
                                             if (evt.oldIndex === evt.newIndex) return;
-                                            const arr = jsMainBreak[go_route];
+                                            const arr = jsMainBreak[goRoute];
                                             const moved = arr.splice(evt.oldIndex, 1)[0];
                                             arr.splice(evt.newIndex, 0, moved);
                                             arr.forEach((driver, idx) => {
-                                                driver.new_queue = `${go_route}-1-${idx + 1}`;
+                                                driver.new_queue = `${goRoute}-1-${idx + 1}`;
                                             });
-                                            updateBreakListDOM(go_route, br_id, 'main');
+                                            updateBreakListDOM(goRoute, brId, 'main');
                                         }
                                     });
                                 }
@@ -781,7 +797,7 @@
                                             arr.forEach((driver, idx) => {
                                                 driver.new_queue = `${goRoute}-2-${idx + 1}`;
                                             });
-                                            updateBreakListDOM(go_route, br_id, 'ex');
+                                            updateBreakListDOM(goRoute, brId, 'ex');
                                         }
                                     });
                                 }
@@ -799,7 +815,7 @@
                                             arr.forEach((driver, idx) => {
                                                 driver.new_queue = `${goRoute}-2-${idx + 1}`;
                                             });
-                                            updateBreakListDOM(go_route, br_id, 'coach');
+                                            updateBreakListDOM(goRoute, brId, 'coach');
                                         }
                                     });
                                 }
@@ -823,13 +839,22 @@
                 });
             }
 
-            // Auto-submit form on date or route change
+            // Auto-submit form on date change only
             document.getElementById('date-select').addEventListener('change', function() {
                 document.getElementById('date-filter-form').submit();
             });
-            // เพิ่ม auto-submit เมื่อเลือกสายใน multi-select
-            document.getElementById('route-multiselect').addEventListener('change', function() {
-                document.getElementById('date-filter-form').submit();
+
+            // Sidebar route tab click: update URL and reload with ?date=...&route=...
+            document.querySelectorAll('#v-pills-tab .nav-link').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const route = btn.getAttribute('data-route');
+                    const date = document.getElementById('date-select').value;
+                    const params = new URLSearchParams(window.location.search);
+                    params.set('route', route);
+                    if (date) params.set('date', date);
+                    window.location.search = params.toString();
+                });
             });
 
             // Set min date to tomorrow to prevent selecting today or past dates
