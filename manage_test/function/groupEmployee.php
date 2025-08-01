@@ -302,7 +302,7 @@ function getEmployee($conn, $route, $goto, $num, $x, $type, $return_request, $ti
         }
     }
 
-    $notredy = groupByRouteWithNewQueue($goto, $data);
+    $notredy = groupByRouteWithNewQueue($goto, $data, 2);
 
     return [$new_data ?? [], $notredy, $re_data];
 }
@@ -565,15 +565,21 @@ function groupMainDriver($goto, $re, $main, $main_re, $return_request, $normal_c
  * @param array $target ตารางข้อมูลเป้าหมาย (array ของ go => array)
  * @return array
  */
-function groupByRouteWithNewQueue($goto, $source, $target = []) {
+function groupByRouteWithNewQueue($goto, $source, $type , $target = []) {
 
     foreach ($source as $key => $routeArr) {
         if (isset($routeArr['main_route'])) {
-            $items = $routeArr;
+            $items = [$routeArr];
         } else {
             $items = $routeArr;
         }
         $go = $goto[$key];
+        if($type == 1){
+            $route_key = $key;
+
+        }else{
+            $route_key = $go;
+        }
         foreach ($items as $item) {
 
             $num = !empty($target[$go]) ? count($target[$go])+1 : 1;
@@ -585,7 +591,7 @@ function groupByRouteWithNewQueue($goto, $source, $target = []) {
                 'em_surname' => $item['em_surname'],
                 'main_car' => $item['main_car'],
                 'em_queue' => $item['em_queue'],
-                'new_queue' => $go . '-1-' . $num,
+                'new_queue' => $route_key. '-1-' . $num,
             ];
         }
     }
